@@ -1,0 +1,2280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wakefit BLR Hub - Dispatch Operations Dashboard</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SheetJS Excel Parser -->
+    <script src="xlsx.full.min.js?v=2"></script>
+
+    <style>
+        :root {
+            --bg-primary: #080c14;
+            --bg-secondary: #0f1626;
+            --bg-glass: rgba(17, 25, 40, 0.65);
+            --border-glass: rgba(255, 255, 255, 0.08);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-gold: #fbbf24;
+            --accent-gold-glow: rgba(251, 191, 36, 0.15);
+            --accent-teal: #0d9488;
+            --accent-teal-glow: rgba(13, 148, 136, 0.2);
+            --accent-blue: #3b82f6;
+            --accent-blue-glow: rgba(59, 130, 246, 0.2);
+            --accent-red: #f43f5e;
+            --accent-red-glow: rgba(244, 63, 94, 0.15);
+            --font-display: 'Outfit', sans-serif;
+            --font-body: 'Inter', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.08) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(251, 191, 36, 0.06) 0px, transparent 50%),
+                radial-gradient(at 50% 100%, rgba(13, 148, 136, 0.06) 0px, transparent 50%);
+            color: var(--text-primary);
+            font-family: var(--font-body);
+            min-height: 100vh;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1280px;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        /* Header Styling */
+        header {
+            background: var(--bg-glass);
+            border: 1px solid var(--border-glass);
+            backdrop-filter: blur(16px);
+            border-radius: 20px;
+            padding: 1.25rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .logo {
+            background: linear-gradient(135deg, var(--accent-gold), #fb7185);
+            color: #080c14;
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-display);
+            font-weight: 800;
+            font-size: 1.6rem;
+            box-shadow: 0 4px 20px rgba(251, 191, 36, 0.35);
+        }
+
+        .title h1 {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            background: linear-gradient(to right, #ffffff, #cbd5e1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .title p {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            margin-top: 0.1rem;
+            font-weight: 500;
+        }
+
+        .hub-badge {
+            background: var(--accent-gold-glow);
+            border: 1px solid rgba(251, 191, 36, 0.3);
+            color: var(--accent-gold);
+            padding: 0.5rem 1.25rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            box-shadow: 0 0 15px rgba(251, 191, 36, 0.05);
+        }
+
+        /* Drag & Drop Zone Layout */
+        .dropzone-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.25rem;
+        }
+
+        @media (max-width: 992px) {
+            .dropzone-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .dropzone-card {
+            background: var(--bg-glass);
+            border: 2px dashed rgba(255, 255, 255, 0.12);
+            border-radius: 20px;
+            padding: 2.25rem 1.5rem;
+            text-align: center;
+            cursor: pointer;
+            position: relative;
+            backdrop-filter: blur(16px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
+        }
+
+        .dropzone-card:hover {
+            border-color: var(--accent-gold);
+            background: rgba(17, 25, 40, 0.8);
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(251, 191, 36, 0.08);
+        }
+
+        .dropzone-card.dragover {
+            border-color: var(--accent-teal) !important;
+            background: rgba(13, 148, 136, 0.05) !important;
+            box-shadow: 0 0 30px rgba(13, 148, 136, 0.15) !important;
+        }
+
+        .dropzone-card.loaded {
+            border: 1px solid var(--accent-teal);
+            background: rgba(13, 148, 136, 0.02);
+            cursor: default;
+            transform: none !important;
+            box-shadow: 0 8px 32px rgba(13, 148, 136, 0.05);
+        }
+
+        .dropzone-icon {
+            font-size: 2.4rem;
+            color: var(--text-secondary);
+            transition: color 0.3s;
+        }
+
+        .dropzone-card.loaded .dropzone-icon {
+            color: var(--accent-teal);
+            animation: pulseSuccess 2.5s infinite;
+        }
+
+        .dropzone-card.optional {
+            border-color: rgba(59, 130, 246, 0.25);
+        }
+        .dropzone-card.optional:hover {
+            border-color: var(--accent-blue);
+        }
+        .dropzone-card.optional.loaded {
+            border-color: var(--accent-teal);
+        }
+
+        @keyframes pulseSuccess {
+            0%, 100% { transform: scale(1); opacity: 0.9; }
+            50% { transform: scale(1.06); opacity: 1; }
+        }
+
+        .dropzone-title {
+            font-family: var(--font-display);
+            font-size: 1.05rem;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+        }
+
+        .dropzone-desc {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            max-width: 260px;
+            line-height: 1.4;
+        }
+
+        .file-info {
+            font-size: 0.8rem;
+            color: var(--accent-teal);
+            font-weight: 600;
+            background-color: var(--accent-teal-glow);
+            border: 1px solid rgba(13, 148, 136, 0.25);
+            padding: 0.35rem 0.9rem;
+            border-radius: 8px;
+            display: none;
+            word-break: break-all;
+            max-width: 90%;
+        }
+
+        .dropzone-card.loaded .file-info {
+            display: inline-block;
+        }
+
+        .dropzone-card.loaded .dropzone-desc {
+            display: none;
+        }
+
+        .file-input {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+            z-index: 5;
+        }
+
+        .dropzone-card.loaded .file-input {
+            display: none;
+        }
+
+        .reset-file-btn {
+            background-color: rgba(244, 63, 94, 0.1);
+            border: 1px solid rgba(244, 63, 94, 0.25);
+            color: #fda4af;
+            padding: 0.35rem 0.85rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            z-index: 15;
+            display: none;
+            margin-top: 0.25rem;
+            transition: all 0.2s;
+        }
+
+        .dropzone-card.loaded .reset-file-btn {
+            display: inline-block;
+        }
+
+        .reset-file-btn:hover {
+            background-color: var(--accent-red);
+            color: white;
+            border-color: var(--accent-red);
+        }
+
+        .clean-scan-btn {
+            background: linear-gradient(135deg, var(--accent-blue), #60a5fa);
+            border: none;
+            color: white;
+            padding: 0.35rem 0.85rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            z-index: 15;
+            display: none;
+            margin-top: 0.25rem;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+            transition: all 0.2s;
+        }
+
+        .clean-scan-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(59, 130, 246, 0.35);
+            filter: brightness(1.08);
+        }
+
+        .dropzone-card.loaded .clean-scan-btn {
+            display: inline-flex;
+        }
+
+        /* Dynamic Selector dropdown */
+        .sheet-selector-container {
+            display: none;
+            width: 100%;
+            max-width: 260px;
+            margin-top: 0.5rem;
+            z-index: 15;
+            position: relative;
+            text-align: left;
+        }
+
+        .sheet-selector-container label {
+            font-size: 0.72rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.25rem;
+            display: block;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .sheet-select {
+            width: 100%;
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-glass);
+            padding: 0.45rem 0.6rem;
+            border-radius: 8px;
+            font-family: var(--font-body);
+            font-size: 0.8rem;
+            outline: none;
+            cursor: pointer;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .sheet-select:focus {
+            border-color: var(--accent-gold);
+            box-shadow: 0 0 10px rgba(251, 191, 36, 0.15);
+        }
+
+        /* Metrics Grid */
+        .metrics-section {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.25rem;
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .metrics-section {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .metric-card {
+            background: var(--bg-glass);
+            border: 1px solid var(--border-glass);
+            border-radius: 18px;
+            padding: 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            backdrop-filter: blur(16px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+        }
+
+        .metric-details h3 {
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.4rem;
+        }
+
+        .metric-number {
+            font-family: var(--font-display);
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+
+        .metric-icon-box {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+        }
+
+        .metric-card.total .metric-icon-box { background-color: rgba(59, 130, 246, 0.08); color: var(--accent-blue); }
+        .metric-card.mapped .metric-icon-box { background-color: rgba(13, 148, 136, 0.08); color: var(--accent-teal); }
+        .metric-card.unmapped .metric-icon-box { background-color: rgba(244, 63, 94, 0.08); color: var(--accent-red); }
+        .metric-card.racks .metric-icon-box { background-color: rgba(251, 191, 36, 0.08); color: var(--accent-gold); }
+
+        /* Main Workspace Split Layout */
+        .workspace-split {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr;
+            gap: 1.25rem;
+        }
+
+        @media (max-width: 992px) {
+            .workspace-split {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Route Board Panel */
+        .routes-section {
+            display: none;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.25rem 0;
+        }
+
+        .panel-title {
+            font-family: var(--font-display);
+            font-size: 1.2rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            letter-spacing: -0.01em;
+        }
+
+        .panel-title i {
+            color: var(--accent-gold);
+        }
+
+        .routes-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 1rem;
+        }
+
+        .route-card {
+            background: var(--bg-glass);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 1.25rem;
+            backdrop-filter: blur(16px);
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s;
+        }
+
+        .route-card:hover {
+            transform: translateY(-1px);
+        }
+
+        .route-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background-color: var(--accent-gold);
+        }
+
+        .route-card.special-route::before {
+            background-color: var(--accent-teal);
+        }
+
+        .route-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .route-name {
+            font-family: var(--font-display);
+            font-size: 1.15rem;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+        }
+
+        .route-stat {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-weight: 500;
+        }
+
+        .route-stat span {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .btn-copy {
+            background-color: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: var(--text-primary);
+            font-family: var(--font-body);
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 0.55rem 0.9rem;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.45rem;
+            transition: all 0.2s;
+        }
+
+        .btn-copy:hover {
+            background-color: var(--accent-gold);
+            border-color: var(--accent-gold);
+            color: #080c14;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(251, 191, 36, 0.2);
+        }
+
+        .btn-copy.copied {
+            background-color: var(--accent-teal) !important;
+            border-color: var(--accent-teal) !important;
+            color: white !important;
+            box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25) !important;
+            animation: bounce 0.4s ease;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.06); }
+        }
+
+        /* Sidebar Panels */
+        .sidebar-panels {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .side-card {
+            background: var(--bg-glass);
+            border: 1px solid var(--border-glass);
+            border-radius: 18px;
+            padding: 1.25rem;
+            backdrop-filter: blur(16px);
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card-title {
+            font-family: var(--font-display);
+            font-size: 1.05rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            letter-spacing: -0.01em;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 0.6rem;
+        }
+
+        .side-card-title i {
+            color: var(--accent-teal);
+        }
+
+        .side-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            max-height: 220px;
+            overflow-y: auto;
+            padding-right: 0.25rem;
+        }
+
+        .side-list-item {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 10px;
+            padding: 0.6rem 0.8rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.8rem;
+        }
+
+        .side-item-label {
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .side-item-count {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 0.15rem 0.5rem;
+            border-radius: 6px;
+            font-weight: 700;
+            color: var(--accent-teal);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        /* Action Panel / Clean Export */
+        .actions-section {
+            background: var(--bg-glass);
+            border: 1px solid var(--border-glass);
+            border-radius: 20px;
+            padding: 1.75rem;
+            backdrop-filter: blur(16px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            gap: 1rem;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+        }
+
+        .actions-section::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, transparent, rgba(255, 255, 255, 0.02), transparent);
+            transform: translateX(-100%);
+            transition: transform 0.6s ease-in-out;
+            pointer-events: none;
+        }
+
+        .actions-section:hover::after {
+            transform: translateX(100%);
+        }
+
+        .btn-download {
+            background: linear-gradient(135deg, var(--accent-teal), #14b8a6);
+            border: none;
+            color: white;
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: 1rem;
+            padding: 0.85rem 2.25rem;
+            border-radius: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+            box-shadow: 0 4px 15px rgba(13, 148, 136, 0.25);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-download::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+            transition: all 0.6s ease;
+        }
+
+        .btn-download:hover::before {
+            left: 100%;
+        }
+
+        .btn-download:hover {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 10px 25px rgba(13, 148, 136, 0.45);
+            filter: brightness(1.05);
+        }
+
+        .btn-download:active {
+            transform: translateY(1px) scale(0.98);
+        }
+
+        .btn-download.btn-hardware {
+            background: linear-gradient(135deg, #fbbf24, #ea580c);
+            box-shadow: 0 4px 15px rgba(251, 191, 36, 0.25);
+        }
+
+        .btn-download.btn-hardware:hover {
+            box-shadow: 0 10px 25px rgba(251, 191, 36, 0.45);
+        }
+
+        /* Live Preview Panel */
+        .preview-section {
+            background: var(--bg-glass);
+            border: 1px solid var(--border-glass);
+            border-radius: 20px;
+            padding: 1.5rem;
+            backdrop-filter: blur(16px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            display: none;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .preview-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .preview-title {
+            font-family: var(--font-display);
+            font-size: 1.15rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .preview-title i {
+            color: var(--accent-teal);
+        }
+
+        .preview-search-box {
+            position: relative;
+            width: 100%;
+            max-width: 320px;
+        }
+
+        .preview-search-box i {
+            position: absolute;
+            left: 0.85rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .preview-search-input {
+            width: 100%;
+            background-color: rgba(8, 12, 20, 0.5);
+            border: 1px solid var(--border-glass);
+            color: var(--text-primary);
+            font-family: var(--font-body);
+            font-size: 0.8rem;
+            padding: 0.55rem 0.85rem 0.55rem 2.2rem;
+            border-radius: 8px;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .preview-search-input:focus {
+            border-color: var(--accent-teal);
+            background-color: rgba(8, 12, 20, 0.8);
+            box-shadow: 0 0 10px rgba(13, 148, 136, 0.15);
+        }
+
+        .preview-table-container {
+            max-height: 360px;
+            overflow-y: auto;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            background: rgba(8, 12, 20, 0.2);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.8rem;
+        }
+
+        th {
+            background-color: rgba(15, 22, 38, 0.95);
+            color: var(--text-secondary);
+            font-weight: 600;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        td {
+            padding: 0.65rem 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            color: var(--text-primary);
+            word-break: break-all;
+        }
+
+        tr:hover td {
+            background-color: rgba(255, 255, 255, 0.02);
+        }
+
+        .sloc-badge {
+            background-color: rgba(251, 191, 36, 0.08);
+            color: var(--accent-gold);
+            border: 1px solid rgba(251, 191, 36, 0.15);
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.72rem;
+            display: inline-block;
+        }
+
+        .route-badge {
+            background-color: rgba(13, 148, 136, 0.08);
+            color: var(--accent-teal);
+            border: 1px solid rgba(13, 148, 136, 0.15);
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.72rem;
+            display: inline-block;
+        }
+
+        /* Toast notifications */
+        .toast-notification {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background-color: var(--bg-secondary);
+            border-left: 4px solid var(--accent-teal);
+            border-top: 1px solid var(--border-glass);
+            border-bottom: 1px solid var(--border-glass);
+            border-right: 1px solid var(--border-glass);
+            color: var(--text-primary);
+            padding: 1rem 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            transform: translateY(150%);
+            opacity: 0;
+            z-index: 999;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .toast-notification.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .toast-icon {
+            color: var(--accent-teal);
+            font-size: 1.1rem;
+        }
+
+        .side-rider-copy-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 0.1rem;
+            margin-left: 0.4rem;
+            transition: color 0.2s;
+        }
+
+        .side-rider-copy-btn:hover {
+            color: var(--accent-gold);
+        }
+
+        /* Picker details inputs styling */
+        .download-inputs-container {
+            display: flex;
+            gap: 1.25rem;
+            margin-bottom: 1.25rem;
+            width: 100%;
+            max-width: 540px;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-glass);
+            padding: 1.25rem;
+            border-radius: 14px;
+        }
+        .download-input-group {
+            flex: 1;
+            text-align: left;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+        .download-input-group label {
+            font-size: 0.72rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .download-field {
+            width: 100%;
+            background-color: rgba(8, 12, 20, 0.65);
+            border: 1px solid var(--border-glass);
+            color: var(--text-primary);
+            padding: 0.55rem 0.85rem;
+            border-radius: 8px;
+            font-family: var(--font-body);
+            font-size: 0.8rem;
+            outline: none;
+            transition: all 0.2s;
+        }
+        .download-field:focus {
+            border-color: var(--accent-teal);
+            background-color: rgba(8, 12, 20, 0.85);
+            box-shadow: 0 0 10px rgba(13, 148, 136, 0.15);
+        }
+        tr.rt01-row td {
+            font-weight: 700 !important;
+            background-color: rgba(251, 191, 36, 0.06) !important;
+        }
+        tr.rt01-row td span.route-badge {
+            background-color: var(--accent-gold-glow) !important;
+            color: var(--accent-gold) !important;
+            border-color: rgba(251, 191, 36, 0.3) !important;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Header -->
+    <header>
+        <div class="brand">
+            <div class="logo">W</div>
+            <div class="title">
+                <h1>Wakefit Dispatch Helper</h1>
+                <p>Operations Control Room & Picklist Compiler</p>
+            </div>
+        </div>
+        <div class="hub-badge">BLR Hub (Furniture)</div>
+    </header>
+
+    <!-- File Upload Dropzones -->
+    <div class="dropzone-grid">
+        <!-- Box 1: Route Plan Dropzone -->
+        <div class="dropzone-card" id="zone-route-plan">
+            <input type="file" class="file-input" id="input-route-plan" accept=".xlsx, .xls">
+            <div class="dropzone-icon">
+                <i class="fa-solid fa-map-location-dot"></i>
+            </div>
+            <div class="dropzone-title">1. Drop Route Plan Excel</div>
+            <div class="dropzone-desc">Drag and drop the daily route planner sheet here, or click to browse.</div>
+            <div class="file-info" id="info-route-plan">Route Plan Loaded</div>
+            
+            <!-- Dynamic Dropdown Sheet Selector -->
+            <div class="sheet-selector-container" id="sheet-selector-container" onclick="event.stopPropagation();">
+                <label for="sheet-select">Select Planning Sheet:</label>
+                <select id="sheet-select" class="sheet-select"></select>
+            </div>
+            
+            <button class="reset-file-btn" id="reset-route-plan-btn" onclick="resetFile('route-plan', event);">Change File</button>
+        </div>
+
+        <!-- Box 2: CRM Picklist Dropzone -->
+        <div class="dropzone-card" id="zone-picklist">
+            <input type="file" class="file-input" id="input-picklist" accept=".xlsx, .xls">
+            <div class="dropzone-icon">
+                <i class="fa-solid fa-clipboard-list"></i>
+            </div>
+            <div class="dropzone-title">2. Drop CRM Picklist Excel</div>
+            <div class="dropzone-desc">Drag and drop the downloaded CRM Forward Picklist Excel here, or click to browse.</div>
+            <div class="file-info" id="info-picklist">Picklist Loaded</div>
+            <button class="reset-file-btn" id="reset-picklist-btn" onclick="resetFile('picklist', event);">Change File</button>
+        </div>
+
+        <!-- Box 3: Daily Scan Dropzone -->
+        <div class="dropzone-card optional" id="zone-storage">
+            <input type="file" class="file-input" id="input-storage" accept=".xlsx, .xls, .csv">
+            <div class="dropzone-icon">
+                <i class="fa-solid fa-warehouse"></i>
+            </div>
+            <div class="dropzone-title">3. Drop Inventory Scan (Optional)</div>
+            <div class="dropzone-desc">Drop the daily scan sheet here to map "sloc" (FG01 only) and clean scans.</div>
+            <div class="file-info" id="info-storage">Scan Sheet Loaded</div>
+            <div style="display: flex; gap: 0.5rem; justify-content: center; width: 100%; flex-wrap: wrap;">
+                <button class="reset-file-btn" id="reset-storage-btn" onclick="resetFile('storage', event);">Change File</button>
+                <button class="clean-scan-btn" id="clean-scan-btn" onclick="downloadCleanedScan(event);">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    Clean & Download Scan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Grid -->
+    <section class="metrics-section" id="metrics-panel">
+        <div class="metric-card total">
+            <div class="metric-details">
+                <h3>Total Picklist Rows</h3>
+                <div class="metric-number" id="val-total-picklist">0</div>
+            </div>
+            <div class="metric-icon-box">
+                <i class="fa-solid fa-layer-group"></i>
+            </div>
+        </div>
+        
+        <div class="metric-card mapped">
+            <div class="metric-details">
+                <h3>Successfully Mapped</h3>
+                <div class="metric-number" id="val-mapped-picklist">0</div>
+            </div>
+            <div class="metric-icon-box">
+                <i class="fa-solid fa-circle-check"></i>
+            </div>
+        </div>
+
+        <div class="metric-card unmapped">
+            <div class="metric-details">
+                <h3>Unmapped (Route 0)</h3>
+                <div class="metric-number" id="val-unmapped-picklist">0</div>
+            </div>
+            <div class="metric-icon-box">
+                <i class="fa-solid fa-circle-exclamation"></i>
+            </div>
+        </div>
+
+        <div class="metric-card racks">
+            <div class="metric-details">
+                <h3>FG01 Racks Located</h3>
+                <div class="metric-number" id="val-racks-picklist">0</div>
+            </div>
+            <div class="metric-icon-box">
+                <i class="fa-solid fa-boxes-packing"></i>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Workspace Split Panels -->
+    <div class="workspace-split">
+        <!-- Route Consolidate Boards (Left Column) -->
+        <section class="routes-section" id="routes-panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <i class="fa-solid fa-truck-ramp-box"></i>
+                    <h2>Route Consolidated Boards</h2>
+                </div>
+                <div style="font-size: 0.8rem; color: var(--text-secondary); font-weight: 500;">
+                    Click <b>Copy Dockets</b> to copy space-separated CN reference numbers for Shipzy.
+                </div>
+            </div>
+            <div class="routes-grid" id="routes-board">
+                <!-- Injected dynamically -->
+            </div>
+        </section>
+
+        <!-- Sidebar Insights (Right Column) -->
+        <section class="sidebar-panels" id="sidebar-panel" style="display: none;">
+            <!-- Carpenter Rider Load Allocation Card -->
+            <div class="side-card" id="rider-card">
+                <div class="side-card-title">
+                    <i class="fa-solid fa-user-gear"></i>
+                    <h3>Carpenter Rider Allocations</h3>
+                </div>
+                <div class="side-list" id="rider-list">
+                    <!-- Injected dynamically -->
+                </div>
+            </div>
+
+            <!-- Warehouse Picking Location Card -->
+            <div class="side-card" id="picking-card">
+                <div class="side-card-title">
+                    <i class="fa-solid fa-circle-nodes"></i>
+                    <h3>Warehouse Picking Rack Summary</h3>
+                </div>
+                <div class="side-list" id="picking-list">
+                    <!-- Injected dynamically -->
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Live Interactive Preview Panel -->
+    <section class="preview-section" id="preview-panel">
+        <div class="preview-header">
+            <div class="preview-title">
+                <i class="fa-solid fa-magnifying-glass-chart"></i>
+                <h2>Cleaned Picklist Interactive Preview (Excludes Route 0)</h2>
+            </div>
+            <div class="preview-search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" class="preview-search-input" id="preview-search" placeholder="Search dockets, riders, materials or locations...">
+            </div>
+        </div>
+        <div class="preview-table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Rider Detail</th>
+                        <th>Docket Number</th>
+                        <th>Invoice Number</th>
+                        <th>Package SKU</th>
+                        <th>Material Code</th>
+                        <th>Area</th>
+                        <th>Route</th>
+                        <th>Storage Location (Sloc)</th>
+                    </tr>
+                </thead>
+                <tbody id="preview-table-body">
+                    <!-- Injected dynamically -->
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- Download Control Panel -->
+    <section class="actions-section" id="actions-panel">
+        <div class="download-inputs-container">
+            <div class="download-input-group">
+                <label for="picker-name-input">Picker Name</label>
+                <input type="text" id="picker-name-input" class="download-field" placeholder="Enter picker name">
+            </div>
+            <div class="download-input-group">
+                <label for="picklist-date-input">Picklist Date</label>
+                <input type="date" id="picklist-date-input" class="download-field">
+            </div>
+        </div>
+        <div style="display: flex; gap: 1rem; justify-content: center; width: 100%; max-width: 540px; margin: 0 auto 0.5rem auto; flex-wrap: wrap;">
+            <button class="btn-download" id="btn-export" style="flex: 1; min-width: 240px;">
+                <i class="fa-solid fa-file-excel"></i>
+                Download Cleaned Picklist (.xlsx)
+            </button>
+            <button class="btn-download btn-hardware" id="btn-export-hardware" style="flex: 1; min-width: 240px;">
+                <i class="fa-solid fa-screwdriver-wrench"></i>
+                Download Hardware Picklist (.xlsx)
+            </button>
+        </div>
+        <p style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 500;">
+            This file will exclude Route 0 consignments and include mapped Carpenter riders and Storage Locations.
+        </p>
+    </section>
+</div>
+
+<!-- Toast Feedback UI -->
+<div class="toast-notification" id="toast">
+    <i class="fa-solid fa-circle-check toast-icon"></i>
+    <span id="toast-message">Copied to clipboard successfully!</span>
+</div>
+
+<script>
+    // State variables
+    let routePlanWorkbook = null;
+    let routePlanData = null; // Map of docket -> Route
+    let storageLocationData = null; // Map of Material -> Array of locations (FIFO queue)
+    let picklistRowsRaw = null; // Raw picklist array
+    let processedPicklistRows = null; // Cleaned and merged picklist rows
+    let routeGroups = {}; // Dockets grouped by route
+
+    // Inputs
+    const inputRoutePlan = document.getElementById('input-route-plan');
+    const inputPicklist = document.getElementById('input-picklist');
+    const inputStorage = document.getElementById('input-storage');
+    const pickerNameInput = document.getElementById('picker-name-input');
+    const picklistDateInput = document.getElementById('picklist-date-input');
+
+    // Initialize Picklist Date input to today's local date
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    picklistDateInput.value = `${yyyy}-${mm}-${dd}`;
+
+    // Cards / Zones
+    const zoneRoutePlan = document.getElementById('zone-route-plan');
+    const zonePicklist = document.getElementById('zone-picklist');
+    const zoneStorage = document.getElementById('zone-storage');
+
+    const infoRoutePlan = document.getElementById('info-route-plan');
+    const infoPicklist = document.getElementById('info-picklist');
+    const infoStorage = document.getElementById('info-storage');
+
+    const sheetSelectorContainer = document.getElementById('sheet-selector-container');
+    const sheetSelect = document.getElementById('sheet-select');
+
+    // Panels
+    const metricsPanel = document.getElementById('metrics-panel');
+    const routesPanel = document.getElementById('routes-panel');
+    const sidebarPanel = document.getElementById('sidebar-panel');
+    const previewPanel = document.getElementById('preview-panel');
+    const actionsPanel = document.getElementById('actions-panel');
+
+    // Value Counters
+    const valTotalPicklist = document.getElementById('val-total-picklist');
+    const valMappedPicklist = document.getElementById('val-mapped-picklist');
+    const valUnmappedPicklist = document.getElementById('val-unmapped-picklist');
+    const valRacksPicklist = document.getElementById('val-racks-picklist');
+
+    // Lists & Boards
+    const routesBoard = document.getElementById('routes-board');
+    const riderList = document.getElementById('rider-list');
+    const pickingList = document.getElementById('picking-list');
+    const previewTableBody = document.getElementById('preview-table-body');
+    const previewSearchInput = document.getElementById('preview-search');
+    const btnExport = document.getElementById('btn-export');
+    const btnExportHardware = document.getElementById('btn-export-hardware');
+    const toast = document.getElementById('toast');
+    const toastMessage = document.getElementById('toast-message');
+
+    // Raw scan metadata
+    let rawScanRows = null;
+    let rawScanMatCol = null;
+    let rawScanLocCol = null;
+    let rawScanFileName = "";
+
+    // Drag-and-drop attachment
+    setupDragAndDrop(zoneRoutePlan, inputRoutePlan, handleRoutePlanFile);
+    setupDragAndDrop(zonePicklist, inputPicklist, handlePicklistFile);
+    setupDragAndDrop(zoneStorage, inputStorage, handleStorageFile);
+
+    btnExport.addEventListener('click', exportCleanedExcel);
+    btnExportHardware.addEventListener('click', exportHardwareExcel);
+    previewSearchInput.addEventListener('input', () => {
+        renderPreviewTable(previewSearchInput.value);
+    });
+
+    // Sheet Selector Dropdown Handler
+    sheetSelect.addEventListener('change', (e) => {
+        if (routePlanWorkbook) {
+            parseSelectedRouteSheet(e.target.value);
+            checkAndProcessData();
+            showToast(`Switched route planning sheet to "${e.target.value}"`);
+        }
+    });
+
+    // Drag and Drop framework
+    function setupDragAndDrop(zone, input, handler) {
+        input.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            zone.classList.add('dragover');
+        });
+
+        input.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            zone.classList.add('dragover');
+        });
+
+        input.addEventListener('dragleave', () => {
+            zone.classList.remove('dragover');
+        });
+
+        input.addEventListener('drop', () => {
+            zone.classList.remove('dragover');
+        });
+
+        input.addEventListener('change', () => {
+            if (input.files.length > 0) {
+                handler(input.files[0]);
+            }
+        });
+    }
+
+    // Reset upload card state
+    window.resetFile = function(type, event) {
+        if (event) event.stopPropagation();
+
+        if (type === 'route-plan') {
+            routePlanWorkbook = null;
+            routePlanData = null;
+            inputRoutePlan.value = '';
+            zoneRoutePlan.classList.remove('loaded');
+            infoRoutePlan.textContent = 'Route Plan Loaded';
+            sheetSelectorContainer.style.display = 'none';
+            sheetSelect.innerHTML = '';
+        } else if (type === 'picklist') {
+            picklistRowsRaw = null;
+            processedPicklistRows = null;
+            inputPicklist.value = '';
+            zonePicklist.classList.remove('loaded');
+            infoPicklist.textContent = 'Picklist Loaded';
+        } else if (type === 'storage') {
+            storageLocationData = null;
+            rawScanRows = null;
+            rawScanMatCol = null;
+            rawScanLocCol = null;
+            rawScanFileName = "";
+            inputStorage.value = '';
+            zoneStorage.classList.remove('loaded');
+            infoStorage.textContent = 'Inventory Scan Loaded';
+        }
+
+        // Hide Panels if core inputs are reset
+        if (!routePlanWorkbook) {
+            routesPanel.style.display = 'none';
+        }
+        if (!routePlanWorkbook || !picklistRowsRaw) {
+            metricsPanel.style.display = 'none';
+            sidebarPanel.style.display = 'none';
+            previewPanel.style.display = 'none';
+            actionsPanel.style.display = 'none';
+        }
+
+        checkAndProcessData();
+        showToast("File selection reset!");
+    };
+
+    // Notification toast
+    function showToast(message) {
+        toastMessage.textContent = message;
+        toast.classList.add('show');
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, 3000);
+    }
+
+    // Clean match keys
+    function cleanKey(val) {
+        if (val === null || val === undefined) return '';
+        return String(val).trim().toUpperCase();
+    }
+
+    // Extract material code sequence
+    function extractMaterialCode(val) {
+        if (val === null || val === undefined) return '';
+        let str = String(val).trim();
+        
+        let parts = str.split(/[-/_ ]+/);
+        if (parts.length > 0) {
+            let candidate = parts[0].trim();
+            if (/^\d{10}$/.test(candidate)) {
+                return candidate;
+            }
+        }
+        
+        let match = str.match(/\b\d{10}\b/);
+        if (match) {
+            return match[0];
+        }
+        
+        return str.toUpperCase();
+    }
+
+    // 1. Process Route Plan File
+    function handleRoutePlanFile(file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = new Uint8Array(e.target.result);
+                routePlanWorkbook = XLSX.read(data, {type: 'array'});
+                sheetSelect.innerHTML = '';
+                
+                routePlanWorkbook.SheetNames.forEach(name => {
+                    const opt = document.createElement('option');
+                    opt.value = name;
+                    opt.textContent = name;
+                    sheetSelect.appendChild(opt);
+                });
+
+                // Smart sheet target finder
+                let bestIndex = 0;
+                let found = false;
+
+                for (let i = 0; i < routePlanWorkbook.SheetNames.length; i++) {
+                    const name = routePlanWorkbook.SheetNames[i].toLowerCase();
+                    if (name.includes('route plan') && !name.includes('odi') && !name.includes('service')) {
+                        bestIndex = i;
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (!found) {
+                    for (let i = 0; i < routePlanWorkbook.SheetNames.length; i++) {
+                        const name = routePlanWorkbook.SheetNames[i].toLowerCase();
+                        if (name.includes('route plan') || name === 'route' || name === 'routes') {
+                            bestIndex = i;
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!found && routePlanWorkbook.SheetNames.length >= 4) {
+                    bestIndex = 3;
+                }
+
+                sheetSelect.selectedIndex = bestIndex;
+                sheetSelectorContainer.style.display = 'block';
+
+                parseSelectedRouteSheet(sheetSelect.value);
+
+                zoneRoutePlan.classList.add('loaded');
+                infoRoutePlan.textContent = `${file.name} (Loaded)`;
+                
+                showToast("Route plan loaded! Dockets consolidated below.");
+                checkAndProcessData();
+                
+            } catch (err) {
+                console.error(err);
+                alert("Error parsing Route Plan: " + err.message);
+                resetFile('route-plan');
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    // Parse route worksheet records
+    function parseSelectedRouteSheet(sheetName) {
+        if (!routePlanWorkbook) return;
+        
+        try {
+            const worksheet = routePlanWorkbook.Sheets[sheetName];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, {defval: ""});
+            
+            if (jsonData.length === 0) {
+                alert(`Sheet "${sheetName}" is empty.`);
+                routePlanData = null;
+                return;
+            }
+
+            let docketCol = null;
+            let routeCol = null;
+            const sampleRow = jsonData[0];
+            
+            for (let key in sampleRow) {
+                const clean = key.toLowerCase().replace(/[\s_-]/g, '');
+                if (clean === 'docketnumber' || clean === 'docketno' || clean === 'cnreferencenumber' || clean === 'cnrefno') {
+                    docketCol = key;
+                } else if (clean === 'route' || clean === 'routename') {
+                    routeCol = key;
+                }
+            }
+
+            if (!docketCol || !routeCol) {
+                for (let key in sampleRow) {
+                    const clean = key.toLowerCase();
+                    if (!docketCol && clean.includes('docket')) docketCol = key;
+                    if (!routeCol && clean.includes('route')) routeCol = key;
+                }
+            }
+
+            if (!docketCol || !routeCol) {
+                alert(`Could not automatically find Docket Number or Route columns in sheet "${sheetName}".\nColumns: ${Object.keys(sampleRow).join(', ')}`);
+                routePlanData = null;
+                return;
+            }
+
+            routePlanData = {};
+            jsonData.forEach(row => {
+                const docket = cleanKey(row[docketCol]);
+                const route = String(row[routeCol] || '').trim();
+                if (docket) {
+                    routePlanData[docket] = route;
+                }
+            });
+            
+        } catch (e) {
+            console.error(e);
+            alert(`Error reading sheet "${sheetName}": ` + e.message);
+            routePlanData = null;
+        }
+    }
+
+    // 2. Process CRM Picklist File
+    function handlePicklistFile(file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                
+                picklistRowsRaw = XLSX.utils.sheet_to_json(worksheet, {defval: ""});
+                
+                if (picklistRowsRaw.length === 0) {
+                    alert('The Picklist file is empty.');
+                    return;
+                }
+
+                zonePicklist.classList.add('loaded');
+                infoPicklist.textContent = `${file.name} (${picklistRowsRaw.length} rows loaded)`;
+                
+                showToast("CRM Picklist loaded successfully!");
+                checkAndProcessData();
+
+            } catch (err) {
+                console.error(err);
+                alert("Error parsing Picklist: " + err.message);
+                resetFile('picklist');
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    // 3. Process Daily Inventory Scan File (Stateful Location mapping logic)
+    function handleStorageFile(file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, {defval: ""});
+                if (jsonData.length === 0) {
+                    alert("The Storage Location file is empty.");
+                    return;
+                }
+
+                const sampleRow = jsonData[0];
+                let matCol = null;
+                let locCol = null;
+
+                for (let key in sampleRow) {
+                    const clean = key.toLowerCase().replace(/[\s_-]/g, '');
+                    if (clean === 'material' || clean === 'materialcode' || clean === 'sku' || clean === 'itemsku' || clean.includes('material') || clean === 'code' || clean.includes('batch')) {
+                        if (!matCol || clean === 'material' || clean === 'materialcode' || clean === 'sku') {
+                            matCol = key;
+                        }
+                    } 
+                    if (clean === 'storagelocation' || clean === 'sloc' || clean === 'binlocation' || clean.includes('location') || clean.includes('rack') || clean === 'bin') {
+                        if (!locCol || clean === 'storagelocation' || clean === 'sloc') {
+                            locCol = key;
+                        }
+                    }
+                }
+
+                if (!matCol) {
+                    for (let key in sampleRow) {
+                        const clean = key.toLowerCase();
+                        if (clean.includes('material') || clean.includes('sku') || clean.includes('code') || clean.includes('batch')) {
+                            matCol = key;
+                            break;
+                        }
+                    }
+                }
+                if (!locCol) {
+                    for (let key in sampleRow) {
+                        const clean = key.toLowerCase();
+                        if (clean.includes('loc') || clean.includes('rack') || clean.includes('bin') || clean.includes('storage')) {
+                            locCol = key;
+                            break;
+                        }
+                    }
+                }
+
+                if (!matCol || !locCol) {
+                    alert(`Could not automatically find Material or Storage/Rack columns in this sheet.\nColumns: ${Object.keys(sampleRow).join(', ')}`);
+                    return;
+                }
+
+                // STATEFUL PARSING LOGIC:
+                storageLocationData = {};
+                let activeLocation = "";
+                let fg01ScanCount = 0;
+
+                jsonData.forEach(row => {
+                    const locationVal = String(row[locCol] || '').trim();
+                    
+                    if (locationVal && locationVal !== "") {
+                        activeLocation = locationVal;
+                    }
+                    
+                    const rawMaterial = row[matCol];
+                    const material = extractMaterialCode(rawMaterial); 
+                    
+                    if (material && material !== "" && activeLocation !== "") {
+                        const isRTP = activeLocation.toUpperCase().includes('RTP');
+                        const isFG01 = !isRTP; 
+                        
+                        if (isFG01) {
+                            // Support sequential locations by storing every scan instance in order (FIFO queue)
+                            if (!storageLocationData[material]) {
+                                storageLocationData[material] = [];
+                            }
+                            storageLocationData[material].push(activeLocation);
+                            fg01ScanCount++;
+                        }
+                    }
+                });
+
+                rawScanRows = jsonData;
+                rawScanMatCol = matCol;
+                rawScanLocCol = locCol;
+                rawScanFileName = file.name;
+
+                zoneStorage.classList.add('loaded');
+                infoStorage.textContent = `${file.name} (${fg01ScanCount} FG01 mappings loaded)`;
+                showToast("Inventory Location Scan loaded successfully!");
+                checkAndProcessData();
+
+            } catch (err) {
+                console.error(err);
+                alert("Error parsing Storage Location file: " + err.message);
+                resetFile('storage');
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    // Download, split (MAT-BAT) and flatten storage location scan sheet
+    window.downloadCleanedScan = function(event) {
+        if (event) event.stopPropagation();
+        if (!rawScanRows || !rawScanMatCol || !rawScanLocCol) {
+            alert("No scan data available to clean.");
+            return;
+        }
+
+        try {
+            let activeLocation = "";
+            let cleanedRows = [];
+
+            rawScanRows.forEach(row => {
+                const locationVal = String(row[rawScanLocCol] || '').trim();
+                
+                if (locationVal && locationVal !== "") {
+                    activeLocation = locationVal;
+                }
+                
+                const rawMaterial = row[rawScanMatCol];
+                if (rawMaterial && String(rawMaterial).trim() !== "") {
+                    const str = String(rawMaterial).trim();
+                    const parts = str.split(/[-/_ ]+/);
+                    
+                    let material = "";
+                    let batch = "";
+                    
+                    if (parts.length >= 2) {
+                        material = parts[0].trim();
+                        batch = parts[1].trim();
+                    } else if (parts.length === 1) {
+                        material = parts[0].trim();
+                    }
+                    
+                    if (/^\d{10}$/.test(material)) {
+                        if (batch === "" || /^\d{10}$/.test(batch)) {
+                            cleanedRows.push({
+                                'Material': material,
+                                'Batch': batch,
+                                'Rack loc': activeLocation,
+                                'Storage Location': activeLocation
+                            });
+                        }
+                    }
+                }
+            });
+
+            if (cleanedRows.length === 0) {
+                alert("Could not extract any valid Material-Batch scan codes from the file.");
+                return;
+            }
+
+            const worksheet = XLSX.utils.json_to_sheet(cleanedRows);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Cleaned Scans");
+
+            const maxLens = {};
+            cleanedRows.forEach(row => {
+                Object.keys(row).forEach(key => {
+                    const len = String(row[key] || '').length;
+                    maxLens[key] = Math.max(maxLens[key] || key.length, len);
+                });
+            });
+            worksheet['!cols'] = Object.keys(maxLens).map(key => ({
+                wch: maxLens[key] + 3
+            }));
+
+            const baseName = rawScanFileName.replace(/\.[^/.]+$/, "");
+            XLSX.writeFile(workbook, `Cleaned_${baseName}.xlsx`);
+            showToast("Cleaned Daily Scan Excel downloaded! Ready to upload to dashboard.");
+
+        } catch (err) {
+            console.error(err);
+            alert("Error cleaning daily scan file: " + err.message);
+        }
+    };
+
+    // 4. Merging and Processing
+    function checkAndProcessData() {
+        routeGroups = {};
+
+        // 1. Partial Render: Populate routes grid immediately if Route Plan loaded
+        if (routePlanData) {
+            for (let docketVal in routePlanData) {
+                const route = routePlanData[docketVal];
+                if (route && route !== '0' && route !== '0.0' && route.toLowerCase() !== 'unassigned') {
+                    if (!routeGroups[route]) {
+                        routeGroups[route] = [];
+                    }
+                    if (!routeGroups[route].includes(docketVal)) {
+                        routeGroups[route].push(docketVal);
+                    }
+                }
+            }
+            renderRouteBoards();
+            routesPanel.style.display = 'flex';
+        } else {
+            routesPanel.style.display = 'none';
+        }
+
+        // 2. Full Render: Both Route Plan and CRM Picklist uploaded
+        if (routePlanData && picklistRowsRaw) {
+            processedPicklistRows = [];
+            routeGroups = {}; 
+            let unmappedCount = 0;
+            let mappedCount = 0;
+            let totalFg01Count = 0;
+
+            const allocationIndexes = {};
+            const riderLoadCounts = {};
+            const riderDocketsList = {};
+            const pickingLocationCounts = {};
+
+            const firstRow = picklistRowsRaw[0];
+            let picklistCols = {
+                rider_detail: null,
+                docket_number: null,
+                invoice_number: null,
+                package_sku: null,
+                material_code: null,
+                area: null
+            };
+
+            for (let key in firstRow) {
+                const clean = key.toLowerCase().replace(/[\s_-]/g, '');
+                if (clean === 'riderdetail' || clean === 'rider') picklistCols.rider_detail = key;
+                else if (clean === 'docketnumber' || clean === 'docketno' || clean === 'cnreferencenumber') picklistCols.docket_number = key;
+                else if (clean === 'invoicenumber' || clean === 'invoiceno') picklistCols.invoice_number = key;
+                else if (clean === 'packagesku' || clean === 'itemsku') picklistCols.package_sku = key;
+                else if (clean === 'area' || clean === 'city' || clean === 'location') picklistCols.area = key;
+            }
+
+            // Prioritize component material_code matching
+            for (let key in firstRow) {
+                const clean = key.toLowerCase().replace(/[\s_-]/g, '');
+                if (clean === 'materialcode') {
+                    picklistCols.material_code = key;
+                    break;
+                }
+            }
+            if (!picklistCols.material_code) {
+                for (let key in firstRow) {
+                    const clean = key.toLowerCase().replace(/[\s_-]/g, '');
+                    if (clean === 'material' || clean === 'parentmaterialcode') {
+                        picklistCols.material_code = key;
+                    }
+                }
+            }
+
+            if (!picklistCols.docket_number) {
+                for (let key in firstRow) {
+                    if (key.toLowerCase().includes('docket')) picklistCols.docket_number = key;
+                }
+            }
+            if (!picklistCols.package_sku) {
+                for (let key in firstRow) {
+                    if (key.toLowerCase().includes('sku')) picklistCols.package_sku = key;
+                }
+            }
+            if (!picklistCols.material_code) {
+                for (let key in firstRow) {
+                    if (key.toLowerCase().includes('material')) picklistCols.material_code = key;
+                }
+            }
+
+            if (!picklistCols.docket_number) {
+                alert("Could not locate docket_number column in the picklist sheet.");
+                return;
+            }
+
+            picklistRowsRaw.forEach(row => {
+                const docketVal = String(row[picklistCols.docket_number] || '').trim();
+                const docketKey = cleanKey(docketVal);
+                
+                let route = '0';
+                if (docketKey && routePlanData.hasOwnProperty(docketKey)) {
+                    route = routePlanData[docketKey];
+                }
+
+                // Sloc Lookup (Sequential FIFO Allocation) - Only for FG01 area items!
+                let slocVal = "";
+                const areaVal = cleanKey(row[picklistCols.area]);
+                if (storageLocationData && areaVal === 'FG01') {
+                    const rawMatCode = row[picklistCols.material_code];
+                    const matCodeVal = extractMaterialCode(rawMatCode);
+                    if (matCodeVal && storageLocationData.hasOwnProperty(matCodeVal)) {
+                        const locs = storageLocationData[matCodeVal];
+                        if (Array.isArray(locs) && locs.length > 0) {
+                            if (allocationIndexes[matCodeVal] === undefined) {
+                                allocationIndexes[matCodeVal] = 0;
+                            }
+                            const curIndex = allocationIndexes[matCodeVal];
+                            if (curIndex < locs.length) {
+                                slocVal = locs[curIndex];
+                                allocationIndexes[matCodeVal] = curIndex + 1; 
+                            }
+                        } else {
+                            slocVal = String(locs);
+                        }
+                    }
+                }
+
+                const newRow = {
+                    rider_detail: String(row[picklistCols.rider_detail || 'rider_detail'] || '').trim(),
+                    docket_number: docketVal,
+                    invoice_number: String(row[picklistCols.invoice_number || 'invoice_number'] || '').trim(),
+                    package_sku: String(row[picklistCols.package_sku || 'package_sku'] || row[picklistCols.item_sku] || '').trim(),
+                    material_code: String(row[picklistCols.material_code || 'material_code'] || '').trim(),
+                    area: String(row[picklistCols.area || 'area'] || '').trim(),
+                    Route: route,
+                    sloc: slocVal
+                };
+
+                processedPicklistRows.push(newRow);
+
+                if (route && route !== '0' && route !== '0.0' && route.toLowerCase() !== 'unassigned') {
+                    mappedCount++;
+                    if (!routeGroups[route]) {
+                        routeGroups[route] = [];
+                    }
+                    if (!routeGroups[route].includes(docketVal)) {
+                        routeGroups[route].push(docketVal);
+                    }
+
+                    // Count loads per rider
+                    const rider = newRow.rider_detail || "Unassigned Rider";
+                    riderLoadCounts[rider] = (riderLoadCounts[rider] || 0) + 1;
+                    if (!riderDocketsList[rider]) {
+                        riderDocketsList[rider] = [];
+                    }
+                    if (!riderDocketsList[rider].includes(docketVal)) {
+                        riderDocketsList[rider].push(docketVal);
+                    }
+
+                    // Count items per rack location (sloc)
+                    if (slocVal && slocVal.trim() !== "") {
+                        pickingLocationCounts[slocVal] = (pickingLocationCounts[slocVal] || 0) + 1;
+                        totalFg01Count++;
+                    }
+                } else {
+                    newRow.Route = '0';
+                    unmappedCount++;
+                }
+            });
+
+            // Update stats board
+            valTotalPicklist.textContent = processedPicklistRows.length;
+            valMappedPicklist.textContent = mappedCount;
+            valUnmappedPicklist.textContent = unmappedCount;
+            valRacksPicklist.textContent = totalFg01Count;
+
+            // Re-render route grids
+            renderRouteBoards();
+
+            // Render Carpenter Rider Load Panel
+            renderRiderPanel(riderLoadCounts, riderDocketsList);
+
+            // Render Picking Locations Panel
+            renderPickingLocations(pickingLocationCounts);
+
+            // Render Live Preview Grid
+            renderPreviewTable();
+
+            // Toggle Panel Visibility
+            metricsPanel.style.display = 'grid';
+            sidebarPanel.style.display = 'flex';
+            previewPanel.style.display = 'flex';
+            actionsPanel.style.display = 'flex';
+
+            showToast("Picklist and Route plan merged successfully!");
+        } else {
+            metricsPanel.style.display = 'none';
+            sidebarPanel.style.display = 'none';
+            previewPanel.style.display = 'none';
+            actionsPanel.style.display = 'none';
+        }
+    }
+
+    // Render consolidated routes grid
+    function renderRouteBoards() {
+        routesBoard.innerHTML = '';
+        const sortedRoutes = Object.keys(routeGroups).sort();
+
+        if (sortedRoutes.length === 0) {
+            routesBoard.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: var(--text-secondary); padding: 2.5rem; background: rgba(255,255,255,0.01); border-radius: 12px; border: 1px dashed rgba(255,255,255,0.05);">Awaiting Route Plan file. Drop sheet to begin consolidation.</div>';
+            return;
+        }
+
+        sortedRoutes.forEach(route => {
+            const dockets = routeGroups[route];
+            const isSpecial = route.toLowerCase().includes('bluwheel') || route.toLowerCase().includes('lbl');
+            const docketListStr = dockets.join(' ');
+            
+            const card = document.createElement('div');
+            card.className = `route-card ${isSpecial ? 'special-route' : ''}`;
+            card.innerHTML = `
+                <div class="route-info">
+                    <div class="route-name">${route}</div>
+                    <div class="route-stat"><i class="fa-solid fa-receipt"></i> Orders: <span>${dockets.length}</span></div>
+                </div>
+                <button class="btn-copy" onclick="copyToClipboard('${docketListStr}', this)">
+                    <i class="fa-solid fa-copy"></i>
+                    <span>Copy Dockets</span>
+                </button>
+            `;
+            routesBoard.appendChild(card);
+        });
+    }
+
+    // Render Carpenter Riders Allocation Panel
+    function renderRiderPanel(loadCounts, docketsList) {
+        riderList.innerHTML = '';
+        const sortedRiders = Object.keys(loadCounts).sort((a,b) => loadCounts[b] - loadCounts[a]);
+
+        if (sortedRiders.length === 0) {
+            riderList.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: 1.5rem; font-size: 0.8rem;">No rider assignments available.</div>';
+            return;
+        }
+
+        sortedRiders.forEach(rider => {
+            const count = loadCounts[rider];
+            const docketsStr = docketsList[rider].join(' ');
+            const div = document.createElement('div');
+            div.className = 'side-list-item';
+            div.innerHTML = `
+                <div class="side-item-label">
+                    <i class="fa-solid fa-user-check" style="color: var(--accent-teal); font-size: 0.85rem;"></i>
+                    <span>${rider}</span>
+                    <button class="side-rider-copy-btn" title="Copy rider dockets" onclick="copyToClipboard('${docketsStr}', this)">
+                        <i class="fa-solid fa-copy" style="font-size: 0.72rem;"></i>
+                    </button>
+                </div>
+                <div class="side-item-count">${count} dockets</div>
+            `;
+            riderList.appendChild(div);
+        });
+    }
+
+    // Render Picking Location checks
+    function renderPickingLocations(locationCounts) {
+        pickingList.innerHTML = '';
+        const sortedLocs = Object.keys(locationCounts).sort();
+
+        if (sortedLocs.length === 0) {
+            pickingList.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: 1.5rem; font-size: 0.8rem;">Drop daily scans to view picking bins.</div>';
+            return;
+        }
+
+        sortedLocs.forEach(loc => {
+            const count = locationCounts[loc];
+            const div = document.createElement('div');
+            div.className = 'side-list-item';
+            div.innerHTML = `
+                <div class="side-item-label">
+                    <i class="fa-solid fa-location-dot" style="color: var(--accent-gold); font-size: 0.85rem;"></i>
+                    <span>${loc}</span>
+                </div>
+                <div class="side-item-count" style="color: var(--accent-gold);">${count} items</div>
+            `;
+            pickingList.appendChild(div);
+        });
+    }
+
+    // Render Live Preview Table Grid (exludes route 0)
+    function renderPreviewTable(filterText = "") {
+        previewTableBody.innerHTML = '';
+        if (!processedPicklistRows) return;
+
+        const filteredRows = processedPicklistRows.filter(row => {
+            // Exclude Route = 0
+            if (row.Route === '0') return false;
+
+            if (filterText === "") return true;
+            
+            const matchQuery = filterText.toLowerCase();
+            return (
+                (row.docket_number && row.docket_number.toLowerCase().includes(matchQuery)) ||
+                (row.rider_detail && row.rider_detail.toLowerCase().includes(matchQuery)) ||
+                (row.invoice_number && row.invoice_number.toLowerCase().includes(matchQuery)) ||
+                (row.package_sku && row.package_sku.toLowerCase().includes(matchQuery)) ||
+                (row.material_code && row.material_code.toLowerCase().includes(matchQuery)) ||
+                (row.Route && row.Route.toLowerCase().includes(matchQuery)) ||
+                (row.sloc && row.sloc.toLowerCase().includes(matchQuery))
+            );
+        });
+
+        if (filteredRows.length === 0) {
+            previewTableBody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 2rem; color: var(--text-secondary);">No matching items found.</td></tr>`;
+            return;
+        }
+
+        filteredRows.forEach((row, idx) => {
+            const tr = document.createElement('tr');
+            
+            // Highlight RT01 rows in bold
+            const isRT01 = (row.area && row.area.toUpperCase().trim() === 'RT01') ||
+                           (row.sloc && row.sloc.toUpperCase().trim() === 'RT01') ||
+                           (row.Route && row.Route.toUpperCase().trim() === 'RT01') ||
+                           (row.material_code && row.material_code.toUpperCase().includes('RT01')) ||
+                           (row.package_sku && row.package_sku.toUpperCase().includes('RT01'));
+            if (isRT01) {
+                tr.classList.add('rt01-row');
+            }
+
+            tr.innerHTML = `
+                <td style="color: var(--text-secondary); font-weight: 600;">${idx + 1}</td>
+                <td><b>${row.rider_detail || 'N/A'}</b></td>
+                <td><code style="font-weight: 700; color: #fff;">${row.docket_number || 'N/A'}</code></td>
+                <td>${row.invoice_number || 'N/A'}</td>
+                <td><code style="font-size: 0.75rem;">${row.package_sku || 'N/A'}</code></td>
+                <td>${row.material_code || 'N/A'}</td>
+                <td><span style="font-size: 0.75rem; color: var(--text-secondary);">${row.area || 'N/A'}</span></td>
+                <td><span class="route-badge">${row.Route || 'N/A'}</span></td>
+                <td>${row.sloc ? `<span class="sloc-badge">${row.sloc}</span>` : '<i style="color: var(--text-secondary);">N/A</i>'}</td>
+            `;
+            previewTableBody.appendChild(tr);
+        });
+    }
+
+    // Global copy handler with feedback transition
+    window.copyToClipboard = function(text, buttonElement) {
+        navigator.clipboard.writeText(text).then(() => {
+            const isMiniBtn = buttonElement.classList.contains('side-rider-copy-btn');
+            
+            if (isMiniBtn) {
+                const icon = buttonElement.querySelector('i');
+                icon.className = 'fa-solid fa-check';
+                icon.style.color = 'var(--accent-teal)';
+                showToast("Copied rider's dockets!");
+                setTimeout(() => {
+                    icon.className = 'fa-solid fa-copy';
+                    icon.style.color = '';
+                }, 2000);
+            } else {
+                const icon = buttonElement.querySelector('i');
+                const textSpan = buttonElement.querySelector('span');
+                buttonElement.classList.add('copied');
+                icon.className = 'fa-solid fa-check';
+                textSpan.textContent = 'Copied!';
+                showToast("Docket references copied! Ready for Shipzy.");
+                setTimeout(() => {
+                    buttonElement.classList.remove('copied');
+                    icon.className = 'fa-solid fa-copy';
+                    textSpan.textContent = 'Copy Dockets';
+                }, 2000);
+            }
+        }).catch(err => {
+            console.error('Failed to copy: ', err);
+            alert('Could not copy to clipboard. Select manually.');
+        });
+    };
+
+    // Export clean excel
+    function exportCleanedExcel() {
+        if (!processedPicklistRows || processedPicklistRows.length === 0) return;
+
+        const exportRows = processedPicklistRows.filter(row => row.Route !== '0');
+
+        if (exportRows.length === 0) {
+            alert('No routed rows available for export. All rows have Route = 0.');
+            return;
+        }
+
+        const pickerName = pickerNameInput.value.trim();
+        const rawDate = picklistDateInput.value;
+        let formattedDate = rawDate ? rawDate.split('-').reverse().join('-') : new Date().toLocaleDateString('en-GB').split('/').join('-');
+
+        const headers = ['rider_detail', 'docket_number', 'invoice_number', 'package_sku', 'material_code', 'area', 'Route'];
+        if (storageLocationData) headers.push('sloc');
+
+        const aoa = [
+            [`Picklist date:- ${formattedDate}`, "", "", `picker name:- ${pickerName}`],
+            headers,
+            ...exportRows.map(row => {
+                const data = [row.rider_detail || '', row.docket_number || '', row.invoice_number || '', row.package_sku || '', row.material_code || '', row.area || '', row.Route || ''];
+                if (storageLocationData) data.push(row.sloc || '');
+                return data;
+            })
+        ];
+
+        try {
+            const worksheet = XLSX.utils.aoa_to_sheet(aoa);
+            const range = XLSX.utils.decode_range(worksheet['!ref']);
+
+            const boldFont = { font: { bold: true } };
+
+            // ── Row 0 (Excel Row 1): Picklist date / picker name ── bold
+            for (let c = 0; c <= range.e.c; c++) {
+                const addr = XLSX.utils.encode_cell({ r: 0, c });
+                if (worksheet[addr]) worksheet[addr].s = boldFont;
+            }
+
+            // ── Row 1 (Excel Row 2): Column headers ── bold
+            for (let c = 0; c <= range.e.c; c++) {
+                const addr = XLSX.utils.encode_cell({ r: 1, c });
+                if (worksheet[addr]) worksheet[addr].s = boldFont;
+            }
+
+            // ── Data rows (Row 3 onwards): bold if area=RTP1 OR sloc=RT01 ──
+            for (let r = 2; r <= range.e.r; r++) {
+                const rowData = exportRows[r - 2];
+                if (!rowData) continue;
+                const area  = (rowData.area  || '').toUpperCase().trim();
+                const sloc  = (rowData.sloc  || '').toUpperCase().trim();
+                const route = (rowData.Route || '').toUpperCase().trim();
+                const isBold = area === 'RTP1' || area === 'RT01' ||
+                               sloc === 'RT01' || sloc === 'RTP1' ||
+                               route === 'RT01' || route === 'RTP1';
+                if (isBold) {
+                    for (let c = 0; c <= range.e.c; c++) {
+                        const addr = XLSX.utils.encode_cell({ r, c });
+                        if (worksheet[addr]) worksheet[addr].s = boldFont;
+                    }
+                }
+            }
+
+            // ── Auto-filter starts at Row 2 (headers) and spans the entire data range ──
+            // This prevents Row 1 (date/picker info) and Row 2 (headers) from being sorted
+            const lastCol = XLSX.utils.encode_col(range.e.c);
+            const lastRow = range.e.r + 1;
+            worksheet['!autofilter'] = { ref: `A2:${lastCol}${lastRow}` };
+
+            // Freeze Row 1 and Row 2 so Excel treats them as fixed title/header rows.
+            // This ensures both rows remain fixed at the top when scrolling and sorting.
+            worksheet['!sheetviews'] = [{ state: 'frozen', ySplit: 2, topLeftCell: 'A3' }];
+
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Cleaned Picklist");
+
+            // Explicitly set filename via Blob + <a download>
+            const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+            const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'Cleaned_Picklist.xlsx';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            showToast("✅ Cleaned Picklist Excel downloaded!");
+        } catch(err) {
+            console.error("Export error:", err);
+            alert("❌ Export failed!\n\nError: " + err.message + "\n\nPlease check the browser console (F12) for details.");
+        }
+    }
+
+    // Export hardware-only excel
+    function exportHardwareExcel() {
+        if (!processedPicklistRows || processedPicklistRows.length === 0) return;
+
+        const exportRows = processedPicklistRows.filter(row => row.Route !== '0');
+
+        if (exportRows.length === 0) {
+            alert('No routed rows available for export. All rows have Route = 0.');
+            return;
+        }
+
+        const seenDockets = new Set();
+        const hardwareRows = [];
+
+        exportRows.forEach(row => {
+            const area = (row.area || '').toUpperCase().trim();
+            
+            // Keep only FG01 rows (implicitly removes RTP1, BB01, etc.)
+            if (area === 'FG01') {
+                const docKey = cleanKey(row.docket_number);
+                if (docKey && !seenDockets.has(docKey)) {
+                    seenDockets.add(docKey);
+                    hardwareRows.push(row);
+                }
+            }
+        });
+
+        if (hardwareRows.length === 0) {
+            alert('No FG01 items found in the picklist.');
+            return;
+        }
+
+        const pickerName = pickerNameInput.value.trim();
+        const rawDate = picklistDateInput.value;
+        let formattedDate = rawDate ? rawDate.split('-').reverse().join('-') : new Date().toLocaleDateString('en-GB').split('/').join('-');
+
+        const headers = ['docket_number', 'invoice_number', 'package_sku', 'material_code', 'area', 'Route'];
+
+        const aoa = [
+            [`Picklist date:- ${formattedDate}`, "", "", `picker name:- ${pickerName}`],
+            headers,
+            ...hardwareRows.map(row => [
+                row.docket_number || '',
+                row.invoice_number || '',
+                row.package_sku || '',
+                row.material_code || '',
+                row.area || '',
+                row.Route || ''
+            ])
+        ];
+
+        try {
+            const worksheet = XLSX.utils.aoa_to_sheet(aoa);
+            const range = XLSX.utils.decode_range(worksheet['!ref']);
+
+            const boldFont = { font: { bold: true } };
+
+            // ── Row 0 (Excel Row 1): Picklist date / picker name ── bold
+            for (let c = 0; c <= range.e.c; c++) {
+                const addr = XLSX.utils.encode_cell({ r: 0, c });
+                if (worksheet[addr]) worksheet[addr].s = boldFont;
+            }
+
+            // ── Row 1 (Excel Row 2): Column headers ── bold
+            for (let c = 0; c <= range.e.c; c++) {
+                const addr = XLSX.utils.encode_cell({ r: 1, c });
+                if (worksheet[addr]) worksheet[addr].s = boldFont;
+            }
+
+            // ── Auto-filter starts at Row 2 (headers) and spans the entire data range ──
+            const lastCol = XLSX.utils.encode_col(range.e.c);
+            const lastRow = range.e.r + 1;
+            worksheet['!autofilter'] = { ref: `A2:${lastCol}${lastRow}` };
+
+            // Freeze Row 1 and Row 2
+            worksheet['!sheetviews'] = [{ state: 'frozen', ySplit: 2, topLeftCell: 'A3' }];
+
+            // ── Auto-calculate column widths ──
+            const maxLens = {};
+            headers.forEach(h => {
+                maxLens[h] = h.length;
+            });
+            hardwareRows.forEach(row => {
+                headers.forEach(h => {
+                    const val = String(row[h] || '');
+                    maxLens[h] = Math.max(maxLens[h], val.length);
+                });
+            });
+            worksheet['!cols'] = headers.map(h => ({
+                wch: maxLens[h] + 3
+            }));
+
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Hardware Picklist");
+
+            const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+            const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'Hardware_Picklist.xlsx';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            showToast("✅ Hardware Picklist Excel downloaded!");
+        } catch(err) {
+            console.error("Hardware export error:", err);
+            alert("❌ Hardware export failed!\n\nError: " + err.message + "\n\nPlease check the browser console (F12) for details.");
+        }
+    }
+</script>
+
+</body>
+</html>

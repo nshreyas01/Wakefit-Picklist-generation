@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="xlsx.full.min.js"></script>
+</head>
+<body>
+    <h1 id="status" style="font-family: sans-serif; padding: 2rem;">Testing Excel Export...</h1>
+    <pre id="details" style="padding: 0 2rem; font-family: monospace; font-size: 1.1rem; color: #555;"></pre>
+    <script>
+        window.onerror = function(msg, url, line) {
+            document.getElementById('status').innerText = "Unhandled Error!";
+            document.getElementById('status').style.color = "red";
+            document.getElementById('details').innerText = msg + "\nLine: " + line + "\nURL: " + url;
+            console.error(msg);
+        };
+        
+        try {
+            const headers = ['rider_detail', 'docket_number', 'invoice_number', 'package_sku', 'material_code', 'area', 'Route', 'sloc'];
+            const row1 = Array(headers.length).fill("");
+            row1[0] = { v: "Picklist date:- 07-06-2026", t: 's' };
+            row1[3] = { v: "picker name:- JOGESH PRADHAN", t: 's' };
+            const row2 = headers.map(h => ({ v: h, t: 's' }));
+            
+            const aoa = [row1, row2];
+            
+            const style = { font: { bold: true } };
+            const emptyStyle = {};
+            const dataRow = [
+                { v: 'Rider A', t: 's', s: emptyStyle },
+                { v: '123456', t: 's', s: style },
+                { v: 'INV-01', t: 's', s: style },
+                { v: 'SKU-01', t: 's', s: style },
+                { v: 'MAT-01', t: 's', s: style },
+                { v: 'RT01', t: 's', s: style },
+                { v: 'Route 1', t: 's', s: style },
+                { v: 'RT01', t: 's', s: style }
+            ];
+            aoa.push(dataRow);
+            
+            const worksheet = XLSX.utils.aoa_to_sheet(aoa);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Cleaned Picklist");
+            
+            const maxLens = Array(headers.length).fill(10);
+            worksheet['!cols'] = maxLens.map(len => ({ wch: len + 3 }));
+            
+            XLSX.writeFile(workbook, "test_out.xlsx");
+            document.getElementById('status').innerText = "SUCCESS! Download triggered.";
+            document.getElementById('status').style.color = "green";
+        } catch (e) {
+            document.getElementById('status').innerText = "Exception Caught!";
+            document.getElementById('status').style.color = "red";
+            document.getElementById('details').innerText = e.message + "\n\nStack:\n" + e.stack;
+            console.error(e);
+        }
+    </script>
+</body>
+</html>

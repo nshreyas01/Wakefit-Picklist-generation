@@ -1,0 +1,25 @@
+# Ignore Excel data sheets
+*.xlsx
+*.xls
+*.csv
+
+# Ignore SOP and Word documents
+*.docx
+*.doc
+
+# Ignore Images and Screenshots
+*.png
+*.jpeg
+*.jpg
+
+# Ignore Backups
+*.bak
+
+# Ignore unzipped temp folders
+temp_*/
+SOP.zip
+PLANNING_FI.zip
+SOP_SCM.zip
+picklist.zip
+picklist3.zip
+planning.zip
