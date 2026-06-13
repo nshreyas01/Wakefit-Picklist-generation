@@ -12,6 +12,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- SheetJS Excel Parser -->
     <script src="xlsx.full.min.js?v=2"></script>
+    <!-- ExcelJS Writer -->
+    <script src="exceljs.min.js"></script>
 
     <style>
         :root {
@@ -1570,6 +1572,16 @@
                 let activeLocation = "";
                 let fg01ScanCount = 0;
 
+                // Detect Storage Type / Location Type column if present
+                let typeCol = null;
+                for (let key in sampleRow) {
+                    const clean = key.toLowerCase().replace(/[\s_-]/g, '');
+                    if (clean.includes('type') || clean === 'storagearea' || clean === 'area' || clean === 'zone') {
+                        typeCol = key;
+                        break;
+                    }
+                }
+
                 jsonData.forEach(row => {
                     const locationVal = String(row[locCol] || '').trim();
                     
@@ -1581,11 +1593,24 @@
                     const material = extractMaterialCode(rawMaterial); 
                     
                     if (material && material !== "" && activeLocation !== "") {
-                        const isRTP = activeLocation.toUpperCase().includes('RTP');
-                        const isFG01 = !isRTP; 
+                        // Determine Storage Type
+                        let storageType = "";
+                        if (typeCol && row[typeCol]) {
+                            const val = String(row[typeCol]).trim().toUpperCase();
+                            if (val.includes("RTP")) {
+                                storageType = "RTP1";
+                            } else if (val.includes("FG")) {
+                                storageType = "FG01";
+                            }
+                        }
                         
-                        if (isFG01) {
-                            // Support sequential locations by storing every scan instance in order (FIFO queue)
+                        // Fallback to checking location name
+                        if (!storageType) {
+                            storageType = activeLocation.toUpperCase().includes('RTP') ? "RTP1" : "FG01";
+                        }
+                        
+                        // Only load FG01 locations into storageLocationData
+                        if (storageType === "FG01") {
                             if (!storageLocationData[material]) {
                                 storageLocationData[material] = [];
                             }
@@ -1810,8 +1835,6 @@
                                 slocVal = locs[curIndex];
                                 allocationIndexes[matCodeVal] = curIndex + 1; 
                             }
-                        } else {
-                            slocVal = String(locs);
                         }
                     }
                 }
@@ -2066,8 +2089,8 @@
         });
     };
 
-    // Export clean excel
-    function exportCleanedExcel() {
+    // Export Cleaned Picklist Excel using ExcelJS
+    async function exportCleanedExcel() {
         if (!processedPicklistRows || processedPicklistRows.length === 0) return;
 
         const exportRows = processedPicklistRows.filter(row => row.Route !== '0');
@@ -2081,71 +2104,100 @@
         const rawDate = picklistDateInput.value;
         let formattedDate = rawDate ? rawDate.split('-').reverse().join('-') : new Date().toLocaleDateString('en-GB').split('/').join('-');
 
-        const headers = ['rider_detail', 'docket_number', 'invoice_number', 'package_sku', 'material_code', 'area', 'Route'];
-        if (storageLocationData) headers.push('sloc');
-
-        const aoa = [
-            [`Picklist date:- ${formattedDate}`, "", "", `picker name:- ${pickerName}`],
-            headers,
-            ...exportRows.map(row => {
-                const data = [row.rider_detail || '', row.docket_number || '', row.invoice_number || '', row.package_sku || '', row.material_code || '', row.area || '', row.Route || ''];
-                if (storageLocationData) data.push(row.sloc || '');
-                return data;
-            })
-        ];
+        const headersCleaned = ['rider_detail', 'docket_number', 'invoice_number', 'package_sku', 'material_code', 'area', 'Route'];
+        if (storageLocationData) headersCleaned.push('sloc');
 
         try {
-            const worksheet = XLSX.utils.aoa_to_sheet(aoa);
-            const range = XLSX.utils.decode_range(worksheet['!ref']);
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet('Cleaned Picklist');
 
-            const boldFont = { font: { bold: true } };
+            // Freeze the first 3 rows (Row 1: Metadata, Row 2: Spacer, Row 3: Headers)
+            worksheet.views = [
+                { state: 'frozen', xSplit: 0, ySplit: 3, topLeftCell: 'A4', activePane: 'bottomLeft' }
+            ];
 
-            // ── Row 0 (Excel Row 1): Picklist date / picker name ── bold
-            for (let c = 0; c <= range.e.c; c++) {
-                const addr = XLSX.utils.encode_cell({ r: 0, c });
-                if (worksheet[addr]) worksheet[addr].s = boldFont;
-            }
+            // ── Row 1: Metadata ──
+            const metaRow = worksheet.addRow([`Picklist date:- ${formattedDate}`, "", "", `picker name:- ${pickerName}`]);
+            metaRow.eachCell((cell) => {
+                cell.font = { name: 'Inter', size: 10, bold: true, color: { argb: 'FF1E293B' } };
+            });
 
-            // ── Row 1 (Excel Row 2): Column headers ── bold
-            for (let c = 0; c <= range.e.c; c++) {
-                const addr = XLSX.utils.encode_cell({ r: 1, c });
-                if (worksheet[addr]) worksheet[addr].s = boldFont;
-            }
+            // ── Row 2: Spacer ──
+            const blankRow = worksheet.addRow([]);
+            blankRow.height = 6;
 
-            // ── Data rows (Row 3 onwards): bold if area=RTP1 OR sloc=RT01 ──
-            for (let r = 2; r <= range.e.r; r++) {
-                const rowData = exportRows[r - 2];
-                if (!rowData) continue;
+            // ── Row 3: Column Headers ──
+            const headerRow = worksheet.addRow(headersCleaned);
+            headerRow.eachCell((cell) => {
+                cell.font = { name: 'Inter', size: 10, bold: true, color: { argb: 'FF0F172A' } };
+                cell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FFE2E8F0' } // Slate 200
+                };
+                cell.border = {
+                    bottom: { style: 'medium', color: { argb: 'FF94A3B8' } },
+                    top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                    left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                    right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+                };
+                cell.alignment = { vertical: 'middle', horizontal: 'left' };
+            });
+
+            // ── Cleaned Picklist Data Rows ──
+            exportRows.forEach(rowData => {
+                const data = [
+                    rowData.rider_detail || '',
+                    rowData.docket_number || '',
+                    rowData.invoice_number || '',
+                    rowData.package_sku || '',
+                    rowData.material_code || '',
+                    rowData.area || '',
+                    rowData.Route || ''
+                ];
+                if (storageLocationData) {
+                    data.push(rowData.sloc || '');
+                }
+                const r = worksheet.addRow(data);
+
                 const area  = (rowData.area  || '').toUpperCase().trim();
                 const sloc  = (rowData.sloc  || '').toUpperCase().trim();
                 const route = (rowData.Route || '').toUpperCase().trim();
                 const isBold = area === 'RTP1' || area === 'RT01' ||
                                sloc === 'RT01' || sloc === 'RTP1' ||
                                route === 'RT01' || route === 'RTP1';
-                if (isBold) {
-                    for (let c = 0; c <= range.e.c; c++) {
-                        const addr = XLSX.utils.encode_cell({ r, c });
-                        if (worksheet[addr]) worksheet[addr].s = boldFont;
+
+                r.eachCell((cell) => {
+                    cell.font = { name: 'Inter', size: 10, bold: isBold, color: isBold ? { argb: 'FF000000' } : { argb: 'FF334155' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'left' };
+                    cell.border = {
+                        bottom: { style: 'thin', color: { argb: 'FFF1F5F9' } }
+                    };
+                });
+            });
+
+            // AutoFilter for Row 3
+            const endRowCleaned = worksheet.rowCount;
+            worksheet.autoFilter = {
+                from: { row: 3, column: 1 },
+                to: { row: endRowCleaned, column: headersCleaned.length }
+            };
+
+            // Auto-calculate column widths
+            worksheet.columns.forEach(column => {
+                let maxLen = 0;
+                column.eachCell({ includeEmpty: true }, (cell, rowNumber) => {
+                    if (rowNumber > 2) {
+                        const val = cell.value ? String(cell.value) : '';
+                        if (val.length > maxLen) maxLen = val.length;
                     }
-                }
-            }
+                });
+                column.width = Math.max(12, maxLen + 3);
+            });
 
-            // ── Auto-filter starts at Row 2 (headers) and spans the entire data range ──
-            // This prevents Row 1 (date/picker info) and Row 2 (headers) from being sorted
-            const lastCol = XLSX.utils.encode_col(range.e.c);
-            const lastRow = range.e.r + 1;
-            worksheet['!autofilter'] = { ref: `A2:${lastCol}${lastRow}` };
-
-            // Freeze Row 1 and Row 2 so Excel treats them as fixed title/header rows.
-            // This ensures both rows remain fixed at the top when scrolling and sorting.
-            worksheet['!sheetviews'] = [{ state: 'frozen', ySplit: 2, topLeftCell: 'A3' }];
-
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Cleaned Picklist");
-
-            // Explicitly set filename via Blob + <a download>
-            const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-            const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            // Write and download
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -2157,29 +2209,21 @@
 
             showToast("✅ Cleaned Picklist Excel downloaded!");
         } catch(err) {
-            console.error("Export error:", err);
-            alert("❌ Export failed!\n\nError: " + err.message + "\n\nPlease check the browser console (F12) for details.");
+            console.error("Cleaned export error:", err);
+            alert("❌ Export failed!\n\nError: " + err.message);
         }
     }
 
-    // Export hardware-only excel
-    function exportHardwareExcel() {
+    // Export Hardware Picklist Excel using ExcelJS
+    async function exportHardwareExcel() {
         if (!processedPicklistRows || processedPicklistRows.length === 0) return;
 
-        const exportRows = processedPicklistRows.filter(row => row.Route !== '0');
-
-        if (exportRows.length === 0) {
-            alert('No routed rows available for export. All rows have Route = 0.');
-            return;
-        }
-
+        // Filter and get unique FG01 orders
         const seenDockets = new Set();
         const hardwareRows = [];
-
-        exportRows.forEach(row => {
+        processedPicklistRows.forEach(row => {
+            if (row.Route === '0') return;
             const area = (row.area || '').toUpperCase().trim();
-            
-            // Keep only FG01 rows (implicitly removes RTP1, BB01, etc.)
             if (area === 'FG01') {
                 const docKey = cleanKey(row.docket_number);
                 if (docKey && !seenDockets.has(docKey)) {
@@ -2190,7 +2234,7 @@
         });
 
         if (hardwareRows.length === 0) {
-            alert('No FG01 items found in the picklist.');
+            alert('No FG01 hardware rows available for export.');
             return;
         }
 
@@ -2198,67 +2242,95 @@
         const rawDate = picklistDateInput.value;
         let formattedDate = rawDate ? rawDate.split('-').reverse().join('-') : new Date().toLocaleDateString('en-GB').split('/').join('-');
 
-        const headers = ['docket_number', 'invoice_number', 'package_sku', 'material_code', 'area', 'Route'];
-
-        const aoa = [
-            [`Picklist date:- ${formattedDate}`, "", "", `picker name:- ${pickerName}`],
-            headers,
-            ...hardwareRows.map(row => [
-                row.docket_number || '',
-                row.invoice_number || '',
-                row.package_sku || '',
-                row.material_code || '',
-                row.area || '',
-                row.Route || ''
-            ])
-        ];
+        const headersHardware = ['docket_number', 'invoice_number', 'package_sku', 'material_code', 'area', 'Route'];
 
         try {
-            const worksheet = XLSX.utils.aoa_to_sheet(aoa);
-            const range = XLSX.utils.decode_range(worksheet['!ref']);
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet('Hardware Picklist');
 
-            const boldFont = { font: { bold: true } };
+            // Freeze the first 3 rows (Row 1: Metadata, Row 2: Spacer, Row 3: Headers)
+            worksheet.views = [
+                { state: 'frozen', xSplit: 0, ySplit: 3, topLeftCell: 'A4', activePane: 'bottomLeft' }
+            ];
 
-            // ── Row 0 (Excel Row 1): Picklist date / picker name ── bold
-            for (let c = 0; c <= range.e.c; c++) {
-                const addr = XLSX.utils.encode_cell({ r: 0, c });
-                if (worksheet[addr]) worksheet[addr].s = boldFont;
-            }
-
-            // ── Row 1 (Excel Row 2): Column headers ── bold
-            for (let c = 0; c <= range.e.c; c++) {
-                const addr = XLSX.utils.encode_cell({ r: 1, c });
-                if (worksheet[addr]) worksheet[addr].s = boldFont;
-            }
-
-            // ── Auto-filter starts at Row 2 (headers) and spans the entire data range ──
-            const lastCol = XLSX.utils.encode_col(range.e.c);
-            const lastRow = range.e.r + 1;
-            worksheet['!autofilter'] = { ref: `A2:${lastCol}${lastRow}` };
-
-            // Freeze Row 1 and Row 2
-            worksheet['!sheetviews'] = [{ state: 'frozen', ySplit: 2, topLeftCell: 'A3' }];
-
-            // ── Auto-calculate column widths ──
-            const maxLens = {};
-            headers.forEach(h => {
-                maxLens[h] = h.length;
+            // ── Row 1: Metadata ──
+            const metaRow = worksheet.addRow([`Picklist date:- ${formattedDate}`, "", "", `picker name:- ${pickerName}`]);
+            metaRow.eachCell((cell) => {
+                cell.font = { name: 'Inter', size: 10, bold: true, color: { argb: 'FF1E293B' } };
             });
-            hardwareRows.forEach(row => {
-                headers.forEach(h => {
-                    const val = String(row[h] || '');
-                    maxLens[h] = Math.max(maxLens[h], val.length);
+
+            // ── Row 2: Spacer ──
+            const blankRow = worksheet.addRow([]);
+            blankRow.height = 6;
+
+            // ── Row 3: Column Headers ──
+            const headerRow = worksheet.addRow(headersHardware);
+            headerRow.eachCell((cell) => {
+                cell.font = { name: 'Inter', size: 10, bold: true, color: { argb: 'FF0F172A' } };
+                cell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FFE2E8F0' } // Slate 200
+                };
+                cell.border = {
+                    bottom: { style: 'medium', color: { argb: 'FF94A3B8' } },
+                    top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                    left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                    right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+                };
+                cell.alignment = { vertical: 'middle', horizontal: 'left' };
+            });
+
+            // ── Hardware Picklist Data Rows ──
+            hardwareRows.forEach(rowData => {
+                const data = [
+                    rowData.docket_number || '',
+                    rowData.invoice_number || '',
+                    rowData.package_sku || '',
+                    rowData.material_code || '',
+                    rowData.area || '',
+                    rowData.Route || ''
+                ];
+                const r = worksheet.addRow(data);
+
+                const area  = (rowData.area  || '').toUpperCase().trim();
+                const sloc  = (rowData.sloc  || '').toUpperCase().trim();
+                const route = (rowData.Route || '').toUpperCase().trim();
+                const isBold = area === 'RTP1' || area === 'RT01' ||
+                               sloc === 'RT01' || sloc === 'RTP1' ||
+                               route === 'RT01' || route === 'RTP1';
+
+                r.eachCell((cell) => {
+                    cell.font = { name: 'Inter', size: 10, bold: isBold, color: isBold ? { argb: 'FF000000' } : { argb: 'FF334155' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'left' };
+                    cell.border = {
+                        bottom: { style: 'thin', color: { argb: 'FFF1F5F9' } }
+                    };
                 });
             });
-            worksheet['!cols'] = headers.map(h => ({
-                wch: maxLens[h] + 3
-            }));
 
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Hardware Picklist");
+            // AutoFilter for Row 3
+            const endRowHardware = worksheet.rowCount;
+            worksheet.autoFilter = {
+                from: { row: 3, column: 1 },
+                to: { row: endRowHardware, column: headersHardware.length }
+            };
 
-            const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-            const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            // Auto-calculate column widths
+            worksheet.columns.forEach(column => {
+                let maxLen = 0;
+                column.eachCell({ includeEmpty: true }, (cell, rowNumber) => {
+                    if (rowNumber > 2) {
+                        const val = cell.value ? String(cell.value) : '';
+                        if (val.length > maxLen) maxLen = val.length;
+                    }
+                });
+                column.width = Math.max(12, maxLen + 3);
+            });
+
+            // Write and download
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -2271,7 +2343,7 @@
             showToast("✅ Hardware Picklist Excel downloaded!");
         } catch(err) {
             console.error("Hardware export error:", err);
-            alert("❌ Hardware export failed!\n\nError: " + err.message + "\n\nPlease check the browser console (F12) for details.");
+            alert("❌ Export failed!\n\nError: " + err.message);
         }
     }
 </script>
